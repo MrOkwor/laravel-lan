@@ -9,12 +9,15 @@ use Mrokwor\LaravelLan\QR\Contracts\QrCodeRendererInterface;
 final class TerminalBlockRenderer implements QrCodeRendererInterface
 {
     public function __construct(
-        private int $quietZone = 2
+        private int $quietZone = 2,
+        private bool $useAnsiColors = true,
     ) {
     }
 
     /**
      * Render matrix using UTF-8 half blocks to achieve square aspect ratio in terminals.
+     * Applies high-contrast white background and black foreground styling so phone cameras
+     * can scan the QR code immediately on any terminal theme (dark or light).
      *
      * @param array<int, array<int, int|bool>> $matrix
      */
@@ -35,7 +38,11 @@ final class TerminalBlockRenderer implements QrCodeRendererInterface
         for ($y = 0; $y < $height; $y++) {
             for ($x = 0; $x < $width; $x++) {
                 $val = $matrix[$y][$x];
-                $grid[$y + $this->quietZone][$x + $this->quietZone] = ($val === true || $val === 1 || (is_int($val) && $val > 0 && ($val & 0x0400) > 0 || ($val & 0x0800) > 0 || ($val & 0x01) > 0));
+                $grid[$y + $this->quietZone][$x + $this->quietZone] = (
+                    $val === true ||
+                    $val === 1 ||
+                    (is_int($val) && (($val & 0x0400) > 0 || ($val & 0x0800) > 0 || ($val & 0x01) > 0))
+                );
             }
         }
 
@@ -48,11 +55,11 @@ final class TerminalBlockRenderer implements QrCodeRendererInterface
                 $top = $grid[$y][$x] ?? false;
                 $bottom = $grid[$y + 1][$x] ?? false;
 
-                // UTF-8 half block characters:
-                // Full block: \u{2588} █
-                // Upper half block: \u{2580} ▀
-                // Lower half block: \u{2584} ▄
-                // Light/space: \u{0020}
+                // With white background and black text:
+                // - Top dark & Bottom dark: full black block \u{2588}
+                // - Top dark & Bottom light: top half black \u{2580}
+                // - Top light & Bottom dark: bottom half black \u{2584}
+                // - Top light & Bottom light: full white space " "
                 if ($top && $bottom) {
                     $line .= "\u{2588}";
                 } elseif ($top && !$bottom) {
@@ -63,7 +70,12 @@ final class TerminalBlockRenderer implements QrCodeRendererInterface
                     $line .= ' ';
                 }
             }
-            $lines[] = $line;
+
+            if ($this->useAnsiColors) {
+                $lines[] = "<fg=black;bg=bright-white>{$line}</>";
+            } else {
+                $lines[] = $line;
+            }
         }
 
         return implode(PHP_EOL, $lines);
