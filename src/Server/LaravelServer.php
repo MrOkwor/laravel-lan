@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Mrokwor\LaravelLan\Server;
 
 use Closure;
+use Mrokwor\LaravelLan\Support\Platform;
+use Mrokwor\LaravelLan\Vite\ViteProcess;
 use Symfony\Component\Console\Output\OutputInterface;
 use Throwable;
 
@@ -15,7 +17,9 @@ final class LaravelServer
 
     public function __construct(
         private ServerConfiguration $config,
-        private ?\Mrokwor\LaravelLan\Vite\ViteProcess $viteProcess = null
+        private ?ViteProcess $viteProcess = null,
+        private ?Closure $onShowQr = null,
+        private ?Closure $onDiagnose = null,
     ) {
         $this->serverProcess = new ServerProcess($config);
     }
@@ -58,10 +62,42 @@ final class LaravelServer
             return 1;
         }
 
+        // Non-blocking keyboard check if interactive terminal
+        if (defined('STDIN') && is_resource(STDIN) && function_exists('stream_set_blocking')) {
+            try {
+                @stream_set_blocking(STDIN, false);
+            } catch (Throwable) {
+            }
+        }
+
         // Monitoring loop
         while (!$this->shouldStop && $this->serverProcess->isRunning()) {
             if ($onTick !== null) {
                 $onTick();
+            }
+
+            // Check for interactive keystrokes
+            if (defined('STDIN') && is_resource(STDIN)) {
+                $char = @fgetc(STDIN);
+                if ($char !== false && $char !== '') {
+                    $char = strtolower(trim($char));
+                    if ($char === 'r') {
+                        if ($output !== null) {
+                            $output->writeln("  <fg=yellow>↻ Restarting Laravel development server...</>");
+                        }
+                        $this->serverProcess->stop();
+                        $this->serverProcess = new ServerProcess($this->config);
+                        $this->serverProcess->start();
+                    } elseif ($char === 'q' && $this->onShowQr !== null) {
+                        ($this->onShowQr)();
+                    } elseif ($char === 'd' && $this->onDiagnose !== null) {
+                        ($this->onDiagnose)();
+                    } elseif ($char === 'h') {
+                        if ($output !== null) {
+                            $output->writeln("  <options=bold>Shortcuts:</> [r] Restart server  [q] Show QR code  [d] Run diagnostics  [Ctrl+C] Quit");
+                        }
+                    }
+                }
             }
 
             if (function_exists('pcntl_signal_dispatch')) {
@@ -88,30 +124,21 @@ final class LaravelServer
         $this->serverProcess->stop();
     }
 
-    public function isRunning(): bool
-    {
-        return $this->serverProcess->isRunning();
-    }
-
-    public function getServerProcess(): ServerProcess
-    {
-        return $this->serverProcess;
-    }
-
     private function registerSignalHandlers(): void
     {
-        register_shutdown_function(function () {
-            $this->stop();
-        });
+        if (function_exists('pcntl_async_signals')) {
+            pcntl_async_signals(true);
+        }
 
         if (function_exists('pcntl_signal')) {
-            pcntl_async_signals(true);
-            pcntl_signal(SIGINT, function () {
-                $this->stop();
-            });
-            pcntl_signal(SIGTERM, function () {
-                $this->stop();
-            });
+            pcntl_signal(SIGINT, fn () => $this->stop());
+            pcntl_signal(SIGTERM, fn () => $this->stop());
         }
+
+        if (function_exists('sapi_windows_set_ctrl_handler')) {
+            sapi_windows_set_ctrl_handler(fn (int $event) => $this->stop());
+        }
+
+        register_shutdown_function(fn () => $this->stop());
     }
 }

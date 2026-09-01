@@ -106,6 +106,13 @@ final class LanCommand extends Command
         $lanUrl = $urlBuilder->build($selectedIp, $port, $config->https);
         $viteLanUrl = $config->viteEnabled ? $urlBuilder->build($selectedIp, $config->vitePort) : null;
 
+        // 5.1 SSL Certificate setup if HTTPS requested
+        $certResult = null;
+        if ($config->https) {
+            $certManager = new \Mrokwor\LaravelLan\HTTPS\CertificateManager();
+            $certResult = $certManager->ensureCertificate($selectedIp);
+        }
+
         // 6. JSON output mode
         if ($config->json) {
             $json = (string) json_encode([
@@ -119,6 +126,8 @@ final class LanCommand extends Command
                 'vite_url' => $viteLanUrl,
                 'with_vite' => $config->withVite,
                 'https' => $config->https,
+                'ssl_cert' => $certResult?->certPath,
+                'ssl_trusted' => $certResult?->isTrusted,
             ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
 
             $lines = preg_split('/\r?\n/', $json) ?: [$json];
@@ -133,12 +142,22 @@ final class LanCommand extends Command
         $this->renderHeader();
         $this->renderNetworkSummary($selectedIface->displayName, $selectedIp, $port, $localUrl, $lanUrl, $config->withVite ? $viteLanUrl : null);
 
+        if ($config->https && $certResult !== null) {
+            if ($certResult->isMkcert) {
+                $this->line('  <fg=green>✓</> <options=bold>SSL Status:</>  <fg=green>Trusted mkcert certificate active</>');
+            } else {
+                $this->line('  <fg=yellow>ℹ</> <options=bold>SSL Status:</>  <fg=yellow>Self-signed SSL certificate active</>');
+                $this->line('    <comment>(On your mobile browser, tap "Advanced" -> "Proceed" if prompted)</comment>');
+            }
+            $this->newLine();
+        }
+
         // 8. Generate and render QR code
         if ($config->qr) {
             $this->renderQrCode($lanUrl, $qrGenerator);
         }
 
-        $this->line('  <comment>Press Ctrl+C to stop the server.</comment>');
+        $this->line('  <comment>Press Ctrl+C to stop the server.</comment> <fg=gray>(Press \'h\' for shortcuts)</>');
         $this->newLine();
 
         // 9. Start Server
@@ -156,7 +175,12 @@ final class LanCommand extends Command
             ? new \Mrokwor\LaravelLan\Vite\ViteProcess(lanIp: $selectedIp, port: $config->vitePort)
             : null;
 
-        $server = new LaravelServer($serverConfig, $viteProcess);
+        $server = new LaravelServer(
+            config: $serverConfig,
+            viteProcess: $viteProcess,
+            onShowQr: fn () => $this->renderQrCode($lanUrl, $qrGenerator),
+            onDiagnose: fn () => $this->handleDiagnostics($config, $diagnosticRunner),
+        );
 
         return $server->serve($this->output);
     }

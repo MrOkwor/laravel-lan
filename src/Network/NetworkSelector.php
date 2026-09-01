@@ -6,11 +6,13 @@ namespace Mrokwor\LaravelLan\Network;
 
 use Closure;
 use RuntimeException;
+use Throwable;
 
 final class NetworkSelector
 {
     public function __construct(
-        private NetworkInterfaceDetector $detector
+        private NetworkInterfaceDetector $detector,
+        private ?string $cachePath = null
     ) {
     }
 
@@ -25,14 +27,23 @@ final class NetworkSelector
     {
         $allInterfaces = $this->detector->detect();
 
-        // 1. Explicit preference specified
-        if ($preferredInterface !== null && trim($preferredInterface) !== '') {
-            $preferred = trim($preferredInterface);
+        // 1. Explicit preference specified (or fallback to saved preference)
+        $targetPreference = $preferredInterface;
+        if (($targetPreference === null || trim($targetPreference) === '') && $promptCallback === null) {
+            $saved = $this->getSavedPreference();
+            if ($saved !== null) {
+                $targetPreference = $saved;
+            }
+        }
+
+        if ($targetPreference !== null && trim($targetPreference) !== '') {
+            $preferred = trim($targetPreference);
 
             // Check if matches an IP directly
             foreach ($allInterfaces as $iface) {
                 foreach ($iface->addresses as $address) {
                     if ($address->ip === $preferred) {
+                        $this->savePreference($iface->name);
                         return [
                             'interface' => $iface,
                             'address' => $address,
@@ -49,6 +60,7 @@ final class NetworkSelector
                         throw new RuntimeException("Interface '{$preferred}' has no configured IP address.");
                     }
 
+                    $this->savePreference($iface->name);
                     return [
                         'interface' => $iface,
                         'address' => $addr,
@@ -61,6 +73,7 @@ final class NetworkSelector
                 if (stripos($iface->name, $preferred) !== false || stripos($iface->displayName, $preferred) !== false) {
                     $addr = $iface->getPreferredIpv4() ?? $iface->addresses[0] ?? null;
                     if ($addr !== null) {
+                        $this->savePreference($iface->name);
                         return [
                             'interface' => $iface,
                             'address' => $addr,
@@ -69,7 +82,10 @@ final class NetworkSelector
                 }
             }
 
-            throw new RuntimeException("Network interface or address '{$preferred}' was not found.");
+            // If it came from an explicit CLI flag, fail. If it was an old stale saved preference, fall through to auto-detect.
+            if ($preferredInterface !== null && trim($preferredInterface) !== '') {
+                throw new RuntimeException("Network interface or address '{$preferred}' was not found.");
+            }
         }
 
         // 2. Auto-detect usable LAN interfaces
@@ -86,6 +102,7 @@ final class NetworkSelector
 
             if (!empty($anyIpv4)) {
                 $chosen = $anyIpv4[0];
+                $this->savePreference($chosen->name);
                 return [
                     'interface' => $chosen,
                     'address' => $chosen->getPreferredIpv4() ?? $chosen->addresses[0],
@@ -101,6 +118,7 @@ final class NetworkSelector
         // If exactly one usable interface exists, return it immediately
         if (count($usable) === 1) {
             $chosen = $usable[0];
+            $this->savePreference($chosen->name);
             return [
                 'interface' => $chosen,
                 'address' => $chosen->getPreferredIpv4() ?? $chosen->addresses[0],
@@ -120,6 +138,7 @@ final class NetworkSelector
             $chosenIndex = max(0, min(count($usable) - 1, $selectedIdx - 1));
             $chosen = $usable[$chosenIndex];
 
+            $this->savePreference($chosen->name);
             return [
                 'interface' => $chosen,
                 'address' => $chosen->getPreferredIpv4() ?? $chosen->addresses[0],
@@ -128,10 +147,53 @@ final class NetworkSelector
 
         // Deterministic highest priority interface for non-interactive
         $chosen = $usable[0];
+        $this->savePreference($chosen->name);
 
         return [
             'interface' => $chosen,
             'address' => $chosen->getPreferredIpv4() ?? $chosen->addresses[0],
         ];
+    }
+
+    private function getCacheFile(): ?string
+    {
+        if ($this->cachePath !== null) {
+            return $this->cachePath;
+        }
+
+        if (function_exists('storage_path')) {
+            try {
+                return storage_path('framework/cache/laravel-lan-interface.txt');
+            } catch (Throwable) {
+            }
+        }
+
+        return null;
+    }
+
+    private function getSavedPreference(): ?string
+    {
+        $file = $this->getCacheFile();
+        if ($file !== null && file_exists($file)) {
+            $val = trim((string) @file_get_contents($file));
+            return $val !== '' ? $val : null;
+        }
+
+        return null;
+    }
+
+    private function savePreference(string $interfaceName): void
+    {
+        $file = $this->getCacheFile();
+        if ($file !== null) {
+            try {
+                $dir = dirname($file);
+                if (!is_dir($dir)) {
+                    @mkdir($dir, 0755, true);
+                }
+                @file_put_contents($file, $interfaceName);
+            } catch (Throwable) {
+            }
+        }
     }
 }
