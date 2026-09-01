@@ -1,0 +1,25 @@
+/vendor/
+composer.phar
+.phpunit.result.cache
+.phpunit.cache/
+.coverage/
+build/
+
+# IDE & OS files
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.DS_Store
+Thumbs.db
+
+# Environment & logs
+.env
+.env.backup
+.env.production
+*.log
+*.txt.bk
+
