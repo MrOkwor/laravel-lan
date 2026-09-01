@@ -56,6 +56,21 @@ final class QrCodeGenerator
         }
     }
 
+    /**
+     * Generate lines of terminal output for the QR code.
+     *
+     * @return array<string>
+     */
+    public function generateLines(string $url): array
+    {
+        $rendered = $this->generate($url);
+        if ($rendered === null || trim($rendered) === '') {
+            return [];
+        }
+
+        return preg_split('/\r?\n/', rtrim($rendered)) ?: [];
+    }
+
     private function getDefaultRenderer(): QrCodeRendererInterface
     {
         if (Platform::supportsUtf8()) {

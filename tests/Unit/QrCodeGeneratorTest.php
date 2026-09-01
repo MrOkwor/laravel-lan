@@ -35,5 +35,15 @@ final class QrCodeGeneratorTest extends TestCase
     {
         $generator = new QrCodeGenerator();
         $this->assertNull($generator->generate(''));
+        $this->assertEmpty($generator->generateLines(''));
+    }
+
+    public function test_generates_lines_array(): void
+    {
+        $generator = new QrCodeGenerator(new PlainTextRenderer());
+        $lines = $generator->generateLines('http://192.168.1.42:8000');
+
+        $this->assertIsArray($lines);
+        $this->assertNotEmpty($lines);
     }
 }
