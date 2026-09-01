@@ -113,7 +113,6 @@ php artisan lan
 | Option | Description | Example |
 |---|---|---|
 | `--with-vite` | Automatically start and manage Vite development server alongside Laravel LAN | `php artisan lan --with-vite` |
-| `--https` | Enable local HTTPS / SSL certificate for mobile browser APIs | `php artisan lan --https` |
 | `--port=` | Specify a custom port | `php artisan lan --port=8080` |
 | `--interface=` | Specify a network interface name or IP | `php artisan lan --interface=wlan0` |
 | `--host=` | Custom bind host (default: `0.0.0.0`) | `php artisan lan --host=0.0.0.0` |
@@ -136,21 +135,6 @@ While `php artisan lan` is actively running in your terminal:
 | `d` | Run live connectivity and environment diagnostics |
 | `h` | Display keyboard shortcuts help |
 | `Ctrl+C` | Gracefully shut down all server processes |
-
----
-
-## Local HTTPS (`--https`)
-
-When testing mobile browser APIs that require **Secure Contexts** (e.g. Camera/WebRTC, Geolocation, WebAuthn, Clipboard API):
-
-```bash
-php artisan lan --https
-```
-
-Laravel LAN automatically:
-- Checks if [`mkcert`](https://github.com/FiloSottile/mkcert) is available and loads trusted local CA certificates.
-- Generates OpenSSL SAN certificates for your specific LAN IP if `mkcert` is not installed.
-- Generates `https://192.168.x.x:8000` URLs and QR codes.
 
 ---
 

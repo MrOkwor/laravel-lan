@@ -46,4 +46,18 @@ final readonly class DiagnosticResult
     {
         return $this->status === DiagnosticStatus::Fail;
     }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function toArray(): array
+    {
+        return [
+            'name' => $this->name,
+            'status' => $this->status->value,
+            'message' => $this->message,
+            'hint' => $this->hint,
+            'data' => $this->data,
+        ];
+    }
 }
