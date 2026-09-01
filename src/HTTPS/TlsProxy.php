@@ -68,6 +68,12 @@ final class TlsProxy
         $client = @stream_socket_accept($this->serverSocket, 0);
         if ($client !== false && is_resource($client)) {
             stream_set_blocking($client, false);
+            stream_context_set_option($client, 'ssl', 'local_cert', $this->certPath);
+            stream_context_set_option($client, 'ssl', 'local_pk', $this->keyPath);
+            stream_context_set_option($client, 'ssl', 'allow_self_signed', true);
+            stream_context_set_option($client, 'ssl', 'verify_peer', false);
+            stream_context_set_option($client, 'ssl', 'verify_peer_name', false);
+
             $id = (int) $client;
             $this->connections[$id] = [
                 'client' => $client,
@@ -99,7 +105,7 @@ final class TlsProxy
                 $crypto = @stream_socket_enable_crypto(
                     $c,
                     true,
-                    STREAM_CRYPTO_METHOD_TLSv1_2_SERVER | STREAM_CRYPTO_METHOD_TLSv1_3_SERVER
+                    STREAM_CRYPTO_METHOD_TLS_SERVER
                 );
 
                 if ($crypto === true) {
