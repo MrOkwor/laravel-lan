@@ -43,6 +43,17 @@ Scan the generated QR code in your terminal to open the application directly on 
 
 ---
 
+## Compatibility
+
+| Laravel Version | PHP Version | Package Support |
+|---|---|---|
+| **13.x** | `^8.2 || ^8.3 || ^8.4` | ✅ Supported |
+| **12.x** | `^8.2 || ^8.3 || ^8.4` | ✅ Supported |
+| **11.x** | `^8.2 || ^8.3 || ^8.4` | ✅ Supported |
+| **10.x** | `^8.2 || ^8.3` | ✅ Supported |
+
+---
+
 ## Installation
 
 Install the package as a development dependency:
