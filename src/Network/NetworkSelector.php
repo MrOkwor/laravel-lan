@@ -161,14 +161,14 @@ final class NetworkSelector
             return $this->cachePath;
         }
 
-        if (function_exists('storage_path')) {
+        if (function_exists('app') && app()->bound('path.storage')) {
             try {
                 return storage_path('framework/cache/laravel-lan-interface.txt');
             } catch (Throwable) {
             }
         }
 
-        return null;
+        return sys_get_temp_dir() . '/laravel-lan-interface.txt';
     }
 
     private function getSavedPreference(): ?string

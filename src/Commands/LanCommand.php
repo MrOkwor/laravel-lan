@@ -161,9 +161,28 @@ final class LanCommand extends Command
         $this->newLine();
 
         // 9. Start Server
+        $backendHost = $config->host;
+        $backendPort = $port;
+        $tlsProxy = null;
+
+        if ($config->https && $certResult !== null) {
+            // Find a free internal loopback port for the plain HTTP Laravel backend
+            $backendPort = $portChecker->findNextAvailablePort($port + 1, $port + 100, '127.0.0.1');
+            $backendHost = '127.0.0.1';
+
+            $tlsProxy = new \Mrokwor\LaravelLan\HTTPS\TlsProxy(
+                bindHost: $config->host,
+                bindPort: $port,
+                backendHost: $backendHost,
+                backendPort: $backendPort,
+                certPath: $certResult->certPath,
+                keyPath: $certResult->keyPath,
+            );
+        }
+
         $serverConfig = new ServerConfiguration(
-            host: $config->host,
-            port: $port,
+            host: $backendHost,
+            port: $backendPort,
             selectedIp: $selectedIp,
             localUrl: $localUrl,
             lanUrl: $lanUrl,
@@ -180,6 +199,7 @@ final class LanCommand extends Command
             viteProcess: $viteProcess,
             onShowQr: fn () => $this->renderQrCode($lanUrl, $qrGenerator),
             onDiagnose: fn () => $this->handleDiagnostics($config, $diagnosticRunner),
+            tlsProxy: $tlsProxy,
         );
 
         return $server->serve($this->output);

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Mrokwor\LaravelLan\Server;
 
 use Closure;
+use Mrokwor\LaravelLan\HTTPS\TlsProxy;
 use Mrokwor\LaravelLan\Support\Platform;
 use Mrokwor\LaravelLan\Vite\ViteProcess;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -20,6 +21,7 @@ final class LaravelServer
         private ?ViteProcess $viteProcess = null,
         private ?Closure $onShowQr = null,
         private ?Closure $onDiagnose = null,
+        private ?TlsProxy $tlsProxy = null,
     ) {
         $this->serverProcess = new ServerProcess($config);
     }
@@ -31,7 +33,19 @@ final class LaravelServer
     {
         $this->registerSignalHandlers();
 
-        // 1. Start Vite process if requested
+        // 1. Start TLS Proxy if HTTPS is enabled
+        if ($this->tlsProxy !== null) {
+            try {
+                $this->tlsProxy->start();
+            } catch (Throwable $e) {
+                if ($output !== null) {
+                    $output->writeln("<error>Failed to start TLS proxy:</error> {$e->getMessage()}");
+                }
+                return 1;
+            }
+        }
+
+        // 2. Start Vite process if requested
         if ($this->viteProcess !== null) {
             $this->viteProcess->start(function (string $type, string $buffer) use ($output) {
                 if ($output !== null && $output->isVerbose()) {
@@ -40,7 +54,7 @@ final class LaravelServer
             });
         }
 
-        // 2. Start Laravel server
+        // 3. Start Laravel server
         $this->serverProcess->start(function (string $type, string $buffer) use ($output) {
             if ($output !== null && $output->isVerbose()) {
                 $output->write($buffer);
@@ -76,6 +90,10 @@ final class LaravelServer
                 $onTick();
             }
 
+            if ($this->tlsProxy !== null) {
+                $this->tlsProxy->tick();
+            }
+
             // Check for interactive keystrokes
             if (defined('STDIN') && is_resource(STDIN)) {
                 $char = @fgetc(STDIN);
@@ -104,7 +122,8 @@ final class LaravelServer
                 pcntl_signal_dispatch();
             }
 
-            usleep(100000); // 100ms
+            // When TLS proxy is active, use smaller usleep for snappy packet relay
+            usleep($this->tlsProxy !== null ? 2000 : 100000); // 2ms if proxying TLS, else 100ms
         }
 
         $this->stop();
@@ -113,11 +132,14 @@ final class LaravelServer
     }
 
     /**
-     * Stop all managed processes.
+     * Stop all managed processes and proxy sockets.
      */
     public function stop(): void
     {
         $this->shouldStop = true;
+        if ($this->tlsProxy !== null) {
+            $this->tlsProxy->stop();
+        }
         if ($this->viteProcess !== null) {
             $this->viteProcess->stop();
         }

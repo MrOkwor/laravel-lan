@@ -150,7 +150,7 @@ DNS.1 = localhost
     {
         if ($this->storagePath !== null) {
             $dir = $this->storagePath;
-        } elseif (function_exists('storage_path')) {
+        } elseif (function_exists('app') && app()->bound('path.storage')) {
             $dir = storage_path('framework/cache/laravel-lan-ssl');
         } else {
             $dir = sys_get_temp_dir() . '/laravel-lan-ssl';
