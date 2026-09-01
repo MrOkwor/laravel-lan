@@ -39,11 +39,13 @@ final class QrCodeGenerator
             $options = new QROptions([
                 'version' => Version::AUTO,
                 'eccLevel' => EccLevel::M,
-                'addQuietzone' => false,
+                'addQuietzone' => true,
+                'quietzoneSize' => 2,
             ]);
 
             $qrcode = new QRCode($options);
-            $qrMatrix = $qrcode->getQRMatrix($url);
+            $qrcode->addByteSegment($url);
+            $qrMatrix = $qrcode->getQRMatrix();
             $matrix = $qrMatrix->getMatrix();
 
             $renderer = $this->renderer ?? $this->getDefaultRenderer();

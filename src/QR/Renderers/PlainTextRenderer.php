@@ -11,7 +11,7 @@ final class PlainTextRenderer implements QrCodeRendererInterface
     public function __construct(
         private string $dark = '##',
         private string $light = '  ',
-        private int $quietZone = 2
+        private int $quietZone = 0
     ) {
     }
 
@@ -41,7 +41,7 @@ final class PlainTextRenderer implements QrCodeRendererInterface
             $line = str_repeat($this->light, $this->quietZone);
             for ($x = 0; $x < $width; $x++) {
                 $val = $matrix[$y][$x];
-                $isDark = ($val === true || $val === 1 || (is_int($val) && $val > 0 && ($val & 0x0400) > 0 || ($val & 0x0800) > 0 || ($val & 0x01) > 0));
+                $isDark = ($val === true || $val === 1 || (is_int($val) && ($val & 0x0800) === 0x0800));
                 $line .= $isDark ? $this->dark : $this->light;
             }
             $line .= str_repeat($this->light, $this->quietZone);

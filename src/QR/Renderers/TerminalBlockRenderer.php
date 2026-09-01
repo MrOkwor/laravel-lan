@@ -9,7 +9,7 @@ use Mrokwor\LaravelLan\QR\Contracts\QrCodeRendererInterface;
 final class TerminalBlockRenderer implements QrCodeRendererInterface
 {
     public function __construct(
-        private int $quietZone = 2,
+        private int $quietZone = 0,
         private bool $useAnsiColors = true,
     ) {
     }
@@ -32,7 +32,7 @@ final class TerminalBlockRenderer implements QrCodeRendererInterface
         $paddedWidth = $width + ($this->quietZone * 2);
         $paddedHeight = $height + ($this->quietZone * 2);
 
-        // Build padded binary matrix (true = dark module, false = light background)
+        // Build binary matrix (true = dark module, false = light background)
         $grid = array_fill(0, $paddedHeight, array_fill(0, $paddedWidth, false));
 
         for ($y = 0; $y < $height; $y++) {
@@ -41,7 +41,7 @@ final class TerminalBlockRenderer implements QrCodeRendererInterface
                 $grid[$y + $this->quietZone][$x + $this->quietZone] = (
                     $val === true ||
                     $val === 1 ||
-                    (is_int($val) && (($val & 0x0400) > 0 || ($val & 0x0800) > 0 || ($val & 0x01) > 0))
+                    (is_int($val) && ($val & 0x0800) === 0x0800)
                 );
             }
         }
