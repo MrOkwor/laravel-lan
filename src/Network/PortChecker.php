@@ -97,4 +97,20 @@ final class PortChecker
             "Could not find an available port in the range {$min}-{$max}."
         );
     }
+
+    /**
+     * Find the next available port starting from a given port.
+     */
+    public function findNextAvailablePort(int $startPort, int $maxPort = 65535, string $host = '127.0.0.1'): int
+    {
+        for ($port = max($startPort, 1); $port <= min($maxPort, 65535); $port++) {
+            if ($this->isPortAvailable($port, $host)) {
+                return $port;
+            }
+        }
+
+        throw new RuntimeException(
+            "Could not find an available port in the range {$startPort}-{$maxPort} on host {$host}."
+        );
+    }
 }

@@ -66,4 +66,19 @@ final class PortCheckerTest extends TestCase
             fclose($socket);
         }
     }
+
+    public function test_find_next_available_port(): void
+    {
+        $socket = stream_socket_server('tcp://127.0.0.1:59131', $errNo, $errStr);
+        $this->assertIsResource($socket);
+
+        $checker = new PortChecker();
+
+        try {
+            $next = $checker->findNextAvailablePort(59131, 59135, '127.0.0.1');
+            $this->assertGreaterThan(59131, $next);
+        } finally {
+            fclose($socket);
+        }
+    }
 }
