@@ -210,11 +210,11 @@ final class LanCommand extends Command
         $this->line("  <fg=gray>Local IP:</>   <fg=cyan;options=bold>{$ip}</>");
         $this->line("  <fg=gray>Port:</>       <fg=yellow;options=bold>{$port}</>");
         $this->newLine();
-        $this->line("  <options=bold>Local URL:</>   <fg=bright-blue;options=underline>{$localUrl}</>");
-        $this->line("  <options=bold>LAN URL:</>     <fg=bright-green;options=bold,underline>{$lanUrl}</>");
+        $this->line("  <options=bold>Local URL:</>   <fg=bright-blue;options=underscore>{$localUrl}</>");
+        $this->line("  <options=bold>LAN URL:</>     <fg=bright-green;options=bold,underscore>{$lanUrl}</>");
 
         if ($viteUrl !== null) {
-            $this->line("  <options=bold>Vite URL:</>    <fg=bright-magenta;options=bold,underline>{$viteUrl}</> <fg=gray>(HMR active)</>");
+            $this->line("  <options=bold>Vite URL:</>    <fg=bright-magenta;options=bold,underscore>{$viteUrl}</> <fg=gray>(HMR active)</>");
         }
 
         $this->newLine();
