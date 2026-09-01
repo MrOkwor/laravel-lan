@@ -106,20 +106,20 @@ final class ViteProcess
 
         if (file_exists("{$basePath}/pnpm-lock.yaml")) {
             $bin = $isWindows ? 'pnpm.cmd' : 'pnpm';
-            return [$bin, 'run', 'dev', '--host', '0.0.0.0', '--port', (string) $this->port];
+            return [$bin, 'run', 'dev', '--host', '0.0.0.0', '--port', (string) $this->port, '--cors'];
         }
 
         if (file_exists("{$basePath}/yarn.lock")) {
             $bin = $isWindows ? 'yarn.cmd' : 'yarn';
-            return [$bin, 'dev', '--host', '0.0.0.0', '--port', (string) $this->port];
+            return [$bin, 'dev', '--host', '0.0.0.0', '--port', (string) $this->port, '--cors'];
         }
 
         if (file_exists("{$basePath}/bun.lockb") || file_exists("{$basePath}/bun.lock")) {
             $bin = $isWindows ? 'bun.exe' : 'bun';
-            return [$bin, 'run', 'dev', '--host', '0.0.0.0', '--port', (string) $this->port];
+            return [$bin, 'run', 'dev', '--host', '0.0.0.0', '--port', (string) $this->port, '--cors'];
         }
 
         $bin = $isWindows ? 'npm.cmd' : 'npm';
-        return [$bin, 'run', 'dev', '--', '--host', '0.0.0.0', '--port', (string) $this->port];
+        return [$bin, 'run', 'dev', '--', '--host', '0.0.0.0', '--port', (string) $this->port, '--cors'];
     }
 }
