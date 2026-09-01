@@ -12,7 +12,7 @@ final class TlsProxy
     /** @var resource|null */
     private $serverSocket = null;
 
-    /** @var array<int, array{client: resource, backend: resource}> */
+    /** @var array<int, array{client: resource, backend: resource|null, handshake: bool, created_at: float}> */
     private array $connections = [];
 
     public function __construct(
@@ -26,7 +26,7 @@ final class TlsProxy
     }
 
     /**
-     * Start the non-blocking TLS listener socket.
+     * Start the TCP listener with SSL context for non-blocking TLS termination.
      */
     public function start(): void
     {
@@ -41,7 +41,7 @@ final class TlsProxy
         ]);
 
         $this->serverSocket = @stream_socket_server(
-            "tls://{$this->bindHost}:{$this->bindPort}",
+            "tcp://{$this->bindHost}:{$this->bindPort}",
             $errno,
             $errstr,
             STREAM_SERVER_BIND | STREAM_SERVER_LISTEN,
@@ -56,7 +56,7 @@ final class TlsProxy
     }
 
     /**
-     * Process I/O for pending client connections and data transfers.
+     * Process I/O for pending client handshakes, connections, and data transfers.
      */
     public function tick(): void
     {
@@ -64,51 +64,82 @@ final class TlsProxy
             return;
         }
 
-        // 1. Accept new incoming TLS client connection
+        // 1. Accept new incoming client TCP connection
         $client = @stream_socket_accept($this->serverSocket, 0);
         if ($client !== false && is_resource($client)) {
             stream_set_blocking($client, false);
-
-            // Connect to internal plain HTTP Laravel backend
-            $backend = @stream_socket_client("tcp://{$this->backendHost}:{$this->backendPort}", $errno, $errstr, 1);
-            if ($backend !== false && is_resource($backend)) {
-                stream_set_blocking($backend, false);
-                $clientId = (int) $client;
-                $this->connections[$clientId] = [
-                    'client' => $client,
-                    'backend' => $backend,
-                ];
-            } else {
-                @fclose($client);
-            }
+            $id = (int) $client;
+            $this->connections[$id] = [
+                'client' => $client,
+                'backend' => null,
+                'handshake' => false,
+                'created_at' => microtime(true),
+            ];
         }
 
-        // 2. Relay data between TLS clients and internal HTTP backend
-        foreach ($this->connections as $key => $pair) {
-            $client = $pair['client'];
-            $backend = $pair['backend'];
+        // 2. Process all active connections
+        $now = microtime(true);
+        foreach ($this->connections as $id => &$session) {
+            $c = $session['client'];
 
-            if (!is_resource($client) || !is_resource($backend) || feof($client) || feof($backend)) {
-                if (is_resource($client)) {
-                    @fclose($client);
+            // Clean up stale or dead connections
+            if (!is_resource($c) || feof($c) || ($now - $session['created_at'] > 30.0)) {
+                if (is_resource($c)) {
+                    @fclose($c);
                 }
-                if (is_resource($backend)) {
-                    @fclose($backend);
+                if (is_resource($session['backend'])) {
+                    @fclose($session['backend']);
                 }
-                unset($this->connections[$key]);
+                unset($this->connections[$id]);
                 continue;
             }
 
-            // Read from client -> write to backend
-            $fromClient = @fread($client, 65536);
-            if ($fromClient !== false && $fromClient !== '') {
-                @fwrite($backend, $fromClient);
+            // Perform TLS Handshake
+            if (!$session['handshake']) {
+                $crypto = @stream_socket_enable_crypto(
+                    $c,
+                    true,
+                    STREAM_CRYPTO_METHOD_TLSv1_2_SERVER | STREAM_CRYPTO_METHOD_TLSv1_3_SERVER
+                );
+
+                if ($crypto === true) {
+                    $session['handshake'] = true;
+                    $backend = @stream_socket_client("tcp://{$this->backendHost}:{$this->backendPort}", $errno, $errstr, 1);
+                    if ($backend !== false && is_resource($backend)) {
+                        stream_set_blocking($backend, false);
+                        $session['backend'] = $backend;
+                    } else {
+                        @fclose($c);
+                        unset($this->connections[$id]);
+                        continue;
+                    }
+                } elseif ($crypto === false) {
+                    // Handshake failed
+                    @fclose($c);
+                    unset($this->connections[$id]);
+                    continue;
+                }
             }
 
-            // Read from backend -> write to client
-            $fromBackend = @fread($backend, 65536);
-            if ($fromBackend !== false && $fromBackend !== '') {
-                @fwrite($client, $fromBackend);
+            // Relay data between TLS client and plain HTTP backend
+            if ($session['handshake'] && is_resource($session['backend'])) {
+                $b = $session['backend'];
+
+                $fromClient = @fread($c, 65536);
+                if ($fromClient !== false && $fromClient !== '') {
+                    @fwrite($b, $fromClient);
+                }
+
+                $fromBackend = @fread($b, 65536);
+                if ($fromBackend !== false && $fromBackend !== '') {
+                    @fwrite($c, $fromBackend);
+                }
+
+                if (feof($b)) {
+                    @fclose($c);
+                    @fclose($b);
+                    unset($this->connections[$id]);
+                }
             }
         }
     }
@@ -118,12 +149,12 @@ final class TlsProxy
      */
     public function stop(): void
     {
-        foreach ($this->connections as $pair) {
-            if (is_resource($pair['client'])) {
-                @fclose($pair['client']);
+        foreach ($this->connections as $session) {
+            if (is_resource($session['client'])) {
+                @fclose($session['client']);
             }
-            if (is_resource($pair['backend'])) {
-                @fclose($pair['backend']);
+            if (is_resource($session['backend'])) {
+                @fclose($session['backend']);
             }
         }
 
