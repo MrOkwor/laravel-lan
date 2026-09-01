@@ -14,7 +14,8 @@ final class LaravelServer
     private bool $shouldStop = false;
 
     public function __construct(
-        private ServerConfiguration $config
+        private ServerConfiguration $config,
+        private ?\Mrokwor\LaravelLan\Vite\ViteProcess $viteProcess = null
     ) {
         $this->serverProcess = new ServerProcess($config);
     }
@@ -26,6 +27,16 @@ final class LaravelServer
     {
         $this->registerSignalHandlers();
 
+        // 1. Start Vite process if requested
+        if ($this->viteProcess !== null) {
+            $this->viteProcess->start(function (string $type, string $buffer) use ($output) {
+                if ($output !== null && $output->isVerbose()) {
+                    $output->write("<fg=cyan>[Vite]</> {$buffer}");
+                }
+            });
+        }
+
+        // 2. Start Laravel server
         $this->serverProcess->start(function (string $type, string $buffer) use ($output) {
             if ($output !== null && $output->isVerbose()) {
                 $output->write($buffer);
@@ -43,6 +54,7 @@ final class LaravelServer
                     $output->writeln("  {$error}");
                 }
             }
+            $this->stop();
             return 1;
         }
 
@@ -65,11 +77,14 @@ final class LaravelServer
     }
 
     /**
-     * Stop the server.
+     * Stop all managed processes.
      */
     public function stop(): void
     {
         $this->shouldStop = true;
+        if ($this->viteProcess !== null) {
+            $this->viteProcess->stop();
+        }
         $this->serverProcess->stop();
     }
 

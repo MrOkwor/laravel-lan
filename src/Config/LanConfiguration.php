@@ -16,6 +16,7 @@ final readonly class LanConfiguration
         public bool $qr = true,
         public bool $viteEnabled = true,
         public int $vitePort = 5173,
+        public bool $withVite = false,
         public bool $https = false,
         public bool $allowPublicBind = false,
         public bool $blockProduction = true,
@@ -69,6 +70,7 @@ final readonly class LanConfiguration
         $viteConfig = (bool) ($configArray['vite']['enabled'] ?? true);
         $viteEnabled = !$noVite && $viteConfig;
         $vitePort = (int) ($configArray['vite']['port'] ?? 5173);
+        $withVite = $viteEnabled && ((bool) ($cliOptions['with-vite'] ?? false) || (bool) ($configArray['vite']['autostart'] ?? false));
 
         // 7. HTTPS
         $httpsFlag = (bool) ($cliOptions['https'] ?? false);
@@ -94,6 +96,7 @@ final readonly class LanConfiguration
             qr: $qr,
             viteEnabled: $viteEnabled,
             vitePort: $vitePort,
+            withVite: $withVite,
             https: $https,
             allowPublicBind: $allowPublicBind,
             blockProduction: $blockProduction,

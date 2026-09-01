@@ -30,6 +30,7 @@ final class LanCommand extends Command
         {--no-auto-port : Disable automatic port fallback when requested port is occupied}
         {--https : Enable HTTPS for local LAN serving (experimental)}
         {--no-qr : Disable QR code rendering in the terminal}
+        {--with-vite : Automatically start and manage the Vite development server alongside Laravel LAN}
         {--no-vite : Disable Vite integration}
         {--diagnose : Run connectivity and environment diagnostics instead of starting the server}
         {--json : Output information in JSON format}
@@ -103,6 +104,7 @@ final class LanCommand extends Command
         // 5. Build URLs
         $localUrl = $urlBuilder->buildLocal($port, $config->https);
         $lanUrl = $urlBuilder->build($selectedIp, $port, $config->https);
+        $viteLanUrl = $config->viteEnabled ? $urlBuilder->build($selectedIp, $config->vitePort) : null;
 
         // 6. JSON output mode
         if ($config->json) {
@@ -114,6 +116,8 @@ final class LanCommand extends Command
                 'ip' => $selectedIp,
                 'local_url' => $localUrl,
                 'lan_url' => $lanUrl,
+                'vite_url' => $viteLanUrl,
+                'with_vite' => $config->withVite,
                 'https' => $config->https,
             ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
 
@@ -127,7 +131,7 @@ final class LanCommand extends Command
 
         // 7. Render banner and info
         $this->renderHeader();
-        $this->renderNetworkSummary($selectedIface->displayName, $selectedIp, $port, $localUrl, $lanUrl);
+        $this->renderNetworkSummary($selectedIface->displayName, $selectedIp, $port, $localUrl, $lanUrl, $config->withVite ? $viteLanUrl : null);
 
         // 8. Generate and render QR code
         if ($config->qr) {
@@ -148,7 +152,11 @@ final class LanCommand extends Command
             isHttps: $config->https,
         );
 
-        $server = new LaravelServer($serverConfig);
+        $viteProcess = $config->withVite
+            ? new \Mrokwor\LaravelLan\Vite\ViteProcess(lanIp: $selectedIp, port: $config->vitePort)
+            : null;
+
+        $server = new LaravelServer($serverConfig, $viteProcess);
 
         return $server->serve($this->output);
     }
@@ -200,10 +208,13 @@ final class LanCommand extends Command
         $this->newLine();
     }
 
-    private function renderNetworkSummary(string $interface, string $ip, int $port, string $localUrl, string $lanUrl): void
+    private function renderNetworkSummary(string $interface, string $ip, int $port, string $localUrl, string $lanUrl, ?string $viteUrl = null): void
     {
         $this->line("  <fg=green>✓</> <options=bold>Interface:</> {$interface}");
         $this->line("  <fg=green>✓</> <options=bold>Port:</>      {$port}");
+        if ($viteUrl !== null) {
+            $this->line("  <fg=green>✓</> <options=bold>Vite HMR:</>  {$viteUrl}");
+        }
         $this->newLine();
 
         $this->line("  <options=bold>Local:</>      <fg=cyan;options=underscore>{$localUrl}</>");

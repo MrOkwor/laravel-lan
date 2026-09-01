@@ -112,6 +112,7 @@ php artisan lan
 
 | Option | Description | Example |
 |---|---|---|
+| `--with-vite` | Automatically start and manage Vite development server alongside Laravel LAN | `php artisan lan --with-vite` |
 | `--port=` | Specify a custom port | `php artisan lan --port=8080` |
 | `--interface=` | Specify a network interface name or IP | `php artisan lan --interface=wlan0` |
 | `--host=` | Custom bind host (default: `0.0.0.0`) | `php artisan lan --host=0.0.0.0` |
@@ -120,6 +121,33 @@ php artisan lan
 | `--diagnose` | Run connectivity and environment diagnostics | `php artisan lan --diagnose` |
 | `--json` | Output network information as JSON | `php artisan lan --json` |
 | `--force` | Force startup even if `APP_ENV=production` | `php artisan lan --force` |
+
+---
+
+## Automatic Vite & HMR Integration
+
+Laravel LAN provides zero-configuration support for Vite:
+
+### 1. Unified Process Manager (`--with-vite`)
+
+Run one command to start both the Laravel server and the Vite development server:
+
+```bash
+php artisan lan --with-vite
+```
+
+Laravel LAN automatically:
+- Spawns Vite using your project's package manager (`npm`, `pnpm`, `yarn`, or `bun`).
+- Binds Vite to `0.0.0.0` with the detected LAN IP set as the HMR host.
+- Rewrites `@vite` asset tags for incoming LAN requests so mobile devices load CSS/JS directly from your computer.
+- Stops both Laravel and Vite cleanly when you press `Ctrl+C`.
+
+*(Optional)* You can enable Vite autostart permanently in `config/lan.php`:
+```php
+'vite' => [
+    'autostart' => true,
+],
+```
 
 ---
 
@@ -152,39 +180,13 @@ Sample diagnostics output:
 
  ⚠ Vite Integration
    Vite detected, but server.host may be bound only to localhost.
-   Tip: To ensure CSS/JS HMR works on your mobile device, add `server: { host: '0.0.0.0' }` to vite.config.js.
+   Tip: To ensure CSS/JS HMR works on your mobile device, add `server: { host: '0.0.0.0' }` to vite.config.js or use `php artisan lan --with-vite`.
 
  ℹ Firewall & Network
    Ensure Windows Defender Firewall allows incoming connections for PHP on port 8000.
    Tip: If connecting fails from your phone, check if Wi-Fi network profile is set to "Private" and Client Isolation is off.
 
 Result: All essential checks passed. Laravel LAN is ready to start!
-```
-
----
-
-## Vite & Hot Module Replacement (HMR)
-
-To enable Vite asset loading and live reload across devices on your local network, configure the `server` block in `vite.config.js`:
-
-```javascript
-import { defineConfig } from 'vite';
-import laravel from 'laravel-vite-plugin';
-
-export default defineConfig({
-    server: {
-        host: '0.0.0.0', // Listen on all network interfaces
-        hmr: {
-            host: '192.168.1.42', // Computer LAN IP address
-        },
-    },
-    plugins: [
-        laravel({
-            input: ['resources/css/app.css', 'resources/js/app.js'],
-            refresh: true,
-        }),
-    ],
-});
 ```
 
 ---

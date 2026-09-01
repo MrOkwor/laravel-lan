@@ -64,6 +64,7 @@ return [
     'vite' => [
         'enabled' => (bool) env('LARAVEL_LAN_VITE', true),
         'port' => (int) env('LARAVEL_LAN_VITE_PORT', 5173),
+        'autostart' => (bool) env('LARAVEL_LAN_VITE_AUTOSTART', false),
     ],
 
     /*

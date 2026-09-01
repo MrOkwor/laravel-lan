@@ -55,6 +55,9 @@ final class LaravelLanServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Automatically adapt @vite asset URLs for mobile LAN clients
+        \Mrokwor\LaravelLan\Vite\LanViteHook::register();
+
         if ($this->app->runningInConsole()) {
             $this->publishes([
                 __DIR__ . '/../config/lan.php' => config_path('lan.php'),

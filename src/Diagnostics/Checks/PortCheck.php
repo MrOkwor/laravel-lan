@@ -33,6 +33,25 @@ final class PortCheck implements DiagnosticCheckInterface
                 );
             }
 
+            if ($config->autoPort) {
+                try {
+                    $nextPort = $portChecker->resolvePort(
+                        preferredPort: $port,
+                        autoPort: true,
+                        min: $config->autoPortMin,
+                        max: $config->autoPortMax,
+                        host: $config->host
+                    );
+
+                    return DiagnosticResult::pass(
+                        name: 'Port Availability',
+                        message: "Default port {$port} is in use; auto-port will automatically bind to port {$nextPort}.",
+                        data: ['preferred_port' => $port, 'resolved_port' => $nextPort, 'host' => $config->host]
+                    );
+                } catch (Throwable) {
+                }
+            }
+
             $nextPort = $port + 1;
             return DiagnosticResult::fail(
                 name: 'Port Availability',
