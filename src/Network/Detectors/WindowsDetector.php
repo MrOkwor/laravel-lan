@@ -74,9 +74,8 @@ final class WindowsDetector implements InterfaceDetectorInterface
             $lowerCombined = strtolower($adapterName . ' ' . $description);
             $isVirtual = str_contains($lowerCombined, 'vethernet')
                 || str_contains($lowerCombined, 'wsl')
-                || str_contains($lowerCombined, 'virtualbox')
-                || str_contains($lowerCombined, 'vmware')
-                || str_contains($lowerCombined, 'hyper-v')
+                || str_contains($lowerCombined, 'virtualbox host-only')
+                || str_contains($lowerCombined, 'vmware virtual')
                 || str_contains($lowerCombined, 'docker')
                 || str_contains($lowerCombined, 'tailscale')
                 || str_contains($lowerCombined, 'wireguard')

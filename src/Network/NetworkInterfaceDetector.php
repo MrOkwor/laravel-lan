@@ -60,9 +60,22 @@ final class NetworkInterfaceDetector implements InterfaceDetectorInterface
      */
     public function detectUsableLanInterfaces(): array
     {
-        return array_values(array_filter(
-            $this->detect(),
+        $all = $this->detect();
+
+        // 1. Physical / non-virtual LAN interfaces
+        $usable = array_values(array_filter(
+            $all,
             fn (NetworkInterface $iface) => $iface->isUsableLan()
+        ));
+
+        if (!empty($usable)) {
+            return $usable;
+        }
+
+        // 2. Fallback for CI/VM/Cloud runners: any up, non-loopback interface with private IPv4
+        return array_values(array_filter(
+            $all,
+            fn (NetworkInterface $iface) => $iface->isUp && !$iface->isLoopback && $iface->hasPrivateIpv4()
         ));
     }
 
